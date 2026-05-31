@@ -4,8 +4,7 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from src.core.config import settings
-from db.database import engine
+from src.db.database import engine
 
 def init_scheduler() -> BackgroundScheduler:
     jobstores = {
