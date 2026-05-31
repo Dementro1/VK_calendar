@@ -12,6 +12,7 @@ from src.db.models.calendar_connection import CalendarConnection
 from src.core.encryption import token_encryption
 from src.integrations.google_oauth import get_authorization_url, exchange_code
 from src.core.config import settings
+from src.db.models.notification_settings import NotificationSettings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -43,6 +44,11 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Создание настроек уведомлений по умолчанию
+    default_settings = NotificationSettings(user_id=user.id)
+    db.add(default_settings)
+    db.commit()
     return RegisterResponse(user_id=user.id, message="Пользователь успешно зарегистрирован")
 
 
