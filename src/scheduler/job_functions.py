@@ -6,16 +6,33 @@ from src.db.database import SessionLocal
 from src.db.models.event import Event
 from src.db.models.user import User
 from src.db.models.notification_settings import NotificationSettings
-from src.services.notification_dispather import dispatch_notification
+from src.services.notification_dispatcher import dispatch_notification
+from src.services.notification_filter import (
+    is_silence_active,
+    is_exception_event,
+    get_events_in_group,
+    compose_group_message,
+)
 
+from src.scheduler.setup import get_scheduler
 logger = logging.getLogger(__name__)
 
-#Возвращает глобальный экземпляр планировщика. Будет установлен при инициализации
-def get_scheduler():
-    from src.main import scheduler
-    return scheduler
+#Удаляет все запланированные напоминания для списка событий.
+def remove_reminders_for_events(event_ids: list):
+    scheduler = get_scheduler()
+    if not scheduler:
+        return
+    for job in scheduler.get_jobs():
+        # Идентификаторы напоминаний: reminder_{event_id}_{minutes}
+        for eid in event_ids:
+            if job.id.startswith(f"reminder_{eid}_"):
+                try:
+                    scheduler.remove_job(job.id)
+                    logger.debug(f"Removed job {job.id}")
+                except Exception:
+                    pass
 
-#Отправка уведомления
+#Отправка уведомления с учётом режима тишины и группировки
 def send_notification(event_id: int):
     db = SessionLocal()
     try:
@@ -24,24 +41,57 @@ def send_notification(event_id: int):
             logger.info(f"Notification skipped: event {event_id} not found or cancelled")
             return
 
-        # Получение пользователя и его VK ID
         user = db.query(User).filter(User.id == event.user_id).first()
-        if not user:
-            logger.error(f"User not found for event {event_id}")
+        settings = db.query(NotificationSettings).filter(NotificationSettings.user_id == event.user_id).first()
+        if not user or not settings:
+            logger.error(f"User or settings missing for event {event_id}")
             return
 
-        # Формирование текста сообщения
+        now = datetime.now(timezone.utc)
+
+        # ---- Проверка режима тишины ----
+        if is_silence_active(settings, now) and not is_exception_event(event.title, settings.silence_exceptions):
+            logger.info(f"Suppressed notification for event {event_id} due to silence mode")
+            scheduler = get_scheduler()
+            if scheduler:
+                for job in scheduler.get_jobs():
+                    if job.id.startswith(f"reminder_{event.id}_"):
+                        try:
+                            scheduler.remove_job(job.id)
+                        except Exception:
+                            pass
+            return
+
+        # ---- Проверка группировки ----
+        grouping_window = settings.grouping_window
+        if grouping_window > 0:
+            group = get_events_in_group(db, event, grouping_window)
+            if len(group) > 1:
+                message = compose_group_message(group)
+                dispatch_notification(
+                    event_id=None,
+                    user_id=user.id,
+                    user_vk_id=user.vk_id,
+                    type="reminder",
+                    scheduled_for=now,
+                    message=message
+                )
+                # Удаляем все напоминания для событий группы (включая текущее)
+                remove_reminders_for_events([e.id for e in group])
+                logger.info(f"Group notification sent for events: {[e.id for e in group]}")
+                return
+
+        # ---- Обычное одиночное уведомление ----
         message = f"Напоминание: {event.title}\nНачало: {event.start_time.strftime('%Y-%m-%d %H:%M %Z')}"
         if event.location:
             message += f"\nМесто: {event.location}"
 
-        # Отправка через диспетчер
         dispatch_notification(
             event_id=event.id,
             user_id=user.id,
             user_vk_id=user.vk_id,
             type="reminder",
-            scheduled_for=datetime.now(timezone.utc),  # время, на которое было запланировано
+            scheduled_for=now,
             message=message
         )
     finally:

@@ -8,6 +8,7 @@ from src.db.models.event import Event
 from src.db.models.calendar_connection import CalendarConnection
 from src.integrations.google_calendar import fetch_events
 from src.scheduler import job_functions
+from src.services.conflict_detector import check_and_warn_conflicts
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,7 @@ def sync_events_for_user(user_id: int):
                 job_functions.remove_event_reminders(local_event)
 
         db.commit()
+        check_and_warn_conflicts(user_id, db)
         logger.info(f"Sync completed for user {user_id}: {len(google_events)} events processed.")
     except Exception as e:
         db.rollback()

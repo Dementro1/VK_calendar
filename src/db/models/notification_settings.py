@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship
 from src.db.database import Base
 
@@ -8,15 +8,19 @@ class NotificationSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
 
-    # Базовые интервалы напоминаний в минутах (по умолчанию 60, 15, 5)
     reminder_intervals = Column(JSON, default=[60, 15, 5])
 
-    # Настройки режима тишины
-    silence_start = Column(String, nullable=True)  # например "23:00"
-    silence_end = Column(String, nullable=True)    # например "08:00"
-    silence_exceptions = Column(JSON, default=[])  # ключевые слова
+    silence_start = Column(String, nullable=True)
+    silence_end = Column(String, nullable=True)
+    silence_exceptions = Column(JSON, default=[])
 
-    # Окно группировки в минутах
     grouping_window = Column(Integer, default=120)
+
+    # День недели: 0=понедельник, 6=воскресенье (по умолчанию воскресенье)
+    weekly_summary_day = Column(Integer, default=6)
+    # Время в формате "HH:MM" (по умолчанию 09:00)
+    weekly_summary_time = Column(String, default="09:00")
+    # Временная метка последней успешной отправки сводки (UTC)
+    last_weekly_summary_sent = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", backref="notification_settings")

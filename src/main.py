@@ -6,6 +6,8 @@ from src.scheduler.setup import init_scheduler
 from src.api.routes.users import router as users_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.settings import router as settings_router
+from src.scheduler.weekly_summary_task import check_weekly_summaries
+from src.api.routes.vk_callback import router as vk_router
 
 from src.core.loggin_congig import setup_logging
 setup_logging()
@@ -25,10 +27,10 @@ async def lifespan(app: FastAPI):
     # Синхронизация раз в 5 минут
     from src.scheduler.tasks import sync_all_users
     scheduler.add_job(
-        sync_all_users,
+        check_weekly_summaries,
         trigger='interval',
-        minutes=5,
-        id='sync_all_users',
+        minutes=1,
+        id='check_weekly_summaries',
         replace_existing=True
     )
     yield
@@ -40,6 +42,7 @@ app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 app.include_router(users_router)
 app.include_router(auth_router)
 app.include_router(settings_router)
+app.include_router(vk_router)
 
 @app.get("/health")
 def health_check():

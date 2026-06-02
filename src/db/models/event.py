@@ -18,6 +18,8 @@ class Event(Base):
     description = Column(Text, nullable=True)
     location = Column(String, nullable=True)
 
+    conflict_resolved = Column(Boolean, default=False)
+
     # Время начала и окончания с часовым поясом
     start_time = Column(DateTime(timezone=True), nullable=False)
     end_time = Column(DateTime(timezone=True), nullable=False)

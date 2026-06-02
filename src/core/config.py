@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     VK_GROUP_TOKEN: str = ""
     VK_GROUP_ID: int = 0
     VK_API_VERSION: str = "5.199"
+    VK_CONFIRMATION_CODE: str = ""
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
