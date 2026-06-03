@@ -1,8 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import List
 
-from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
 from src.db.models.event import Event
 from src.db.models.calendar_connection import CalendarConnection

@@ -50,35 +50,37 @@ def generate_weekly_summary(user_id: int, db: Session) -> str:
         for start, end in free_windows:
             lines.append(f"   • {start.strftime('%d.%m %H:%M')} – {end.strftime('%d.%m %H:%M')}")
     else:
-        lines.append("Нет свободных окон дольше 1 часа.")
+        lines.append("  Нет свободных окон дольше 1 часа.")
 
     return "\n".join(lines)
 
-#Нахождение промежутков между событиями длительностью более 1 часа
-def compute_free_windows(events: List[Event], range_start: datetime, range_end: datetime) -> List[Tuple[datetime, datetime]]:
-    """
-
-    """
+# Нахождение промежутков между событиями длительностью более 1 часа
+def compute_free_windows(events: List[Event], range_start: datetime, range_end: datetime):
     if not events:
-        # Весь диапазон – свободное окно, если он больше часа
         if (range_end - range_start) > timedelta(hours=1):
             return [(range_start, range_end)]
         return []
 
     windows = []
-    # Проверка окна до первого события
-    if (events[0].start_time - range_start) > timedelta(hours=1):
-        windows.append((range_start, events[0].start_time))
+    # Нормализация: если дата без зоны – считаем UTC
+    def ensure_utc(dt):
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
 
-    # Промежутки между событиями
+    # Проверка окна до первого события
+    first_start = ensure_utc(events[0].start_time)
+    if (first_start - range_start) > timedelta(hours=1):
+        windows.append((range_start, first_start))
+
     for i in range(len(events) - 1):
-        gap_start = events[i].end_time
-        gap_end = events[i+1].start_time
+        gap_start = ensure_utc(events[i].end_time)
+        gap_end = ensure_utc(events[i+1].start_time)
         if (gap_end - gap_start) > timedelta(hours=1):
             windows.append((gap_start, gap_end))
 
-    # Проверка окна после последнего события
-    if (range_end - events[-1].end_time) > timedelta(hours=1):
-        windows.append((events[-1].end_time, range_end))
+    last_end = ensure_utc(events[-1].end_time)
+    if (range_end - last_end) > timedelta(hours=1):
+        windows.append((last_end, range_end))
 
     return windows

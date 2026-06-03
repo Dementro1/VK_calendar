@@ -1,7 +1,7 @@
 import logging
 from src.db.database import SessionLocal
 from src.db.models.user import User
-from src.services.syns import sync_events_for_user
+from src.services.sync import sync_events_for_user
 
 logger = logging.getLogger(__name__)
 
